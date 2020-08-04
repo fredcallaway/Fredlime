@@ -1,0 +1,7 @@
+[    
+    {"caption": "Terminal: Local", "command": "start_term"},
+    {"caption": "iTerm: Local", "command": "start_term", "args": {"app": "iterm"}},
+    {"caption": "Terminal: G1", "command": "start_term", "args": {"ssh": "g1"}},
+    {"caption": "Terminal: G2", "command": "start_term", "args": {"ssh": "g2"}},
+    {"caption": "Terminal: Scotty", "command": "start_term", "args": {"ssh": "scotty"}},
+]
