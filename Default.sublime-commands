@@ -1,7 +1,16 @@
 [    
-    {"caption": "Terminal: Local", "command": "start_term"},
+    {"caption": "Terminal: Local", "command": "start_term", "args": {"title": "Local"}},
+    {"caption": "Terminal: G1", "command": "start_term", "args": {"ssh": "g1", "title": "G1"}},
+    {"caption": "Terminal: G2", "command": "start_term", "args": {"ssh": "g2", "title": "G2"}},
+    {"caption": "Terminal: Scotty", "command": "start_term", "args": {"ssh": "scotty", "title": "Scotty"}},
+    {"caption": "Terminal: x1e", "command": "start_term", "args": {"ssh": "x1e", "title": "x1e"}},
+    {"caption": "Terminal: F1", "command": "start_term", "args": {"ssh": "f1", "title": "F1"}},
+    {"caption": "Terminal: F2", "command": "start_term", "args": {"ssh": "f2", "title": "F2"}},
+    {"caption": "Terminal: F3", "command": "start_term", "args": {"ssh": "f3", "title": "F3"}},
+    
     {"caption": "iTerm: Local", "command": "start_term", "args": {"app": "iterm"}},
-    {"caption": "Terminal: G1", "command": "start_term", "args": {"ssh": "g1"}},
-    {"caption": "Terminal: G2", "command": "start_term", "args": {"ssh": "g2"}},
-    {"caption": "Terminal: Scotty", "command": "start_term", "args": {"ssh": "scotty"}},
+    {"caption": "iTerm: G1", "command": "start_term", "args": {"app": "iterm", "ssh": "g1", "title": "G1"}},
+    {"caption": "iTerm: G2", "command": "start_term", "args": {"app": "iterm", "ssh": "g2", "title": "G2"}},
+    {"caption": "iTerm: Scotty", "command": "start_term", "args": {"app": "iterm", "ssh": "scotty"}},
+    
 ]
