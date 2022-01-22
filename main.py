@@ -1,4 +1,4 @@
-from sublime_plugin import WindowCommand
+from sublime_plugin import WindowCommand, TextCommand
 from sublime import Region
 
 import sublime
@@ -91,14 +91,29 @@ def find(view, sel, pattern, backward=False):
         return view.find(pattern, sel.end())
 
 
-class JumpCell(WindowCommand):
-    def run(self, backward=False):
-        view = self.window.active_view()
+def find_surround(view, sel, pattern):
+    regions = view.find_all(pattern)
+    start = 0
+    for i in range(len(regions)):
+        end = regions[i].begin()
+        if start <= sel.begin() and end >= sel.end():
+            break
+        start = regions[i].begin()
+    else:  # no pattern occurrence after sel, go to end of file
+        end = view.size()
+    # if start > 0:
+    #     start = view.find('\n+', start).end()        
+    return sublime.Region(start, end)
+
+
+class JumpCell(TextCommand):
+    def run(self, edit, backward=False):
+        view = self.view
         sels = view.sel()
         
         pattern = {
             'R Markdown': r'^```{r.*}\n',
-            'LaTeX': r'^\\\w+section.*\n',
+            'LaTeX': r'^\\(\w*section|paragraph).*\n',
         }.get(view.syntax().name, r'^# %%.*\n')
 
         region = find(view, sels[0], pattern, backward)
@@ -107,14 +122,24 @@ class JumpCell(WindowCommand):
         
         sels.clear()
         sels.add(region.b)
-        self.window.run_command("show_at_center")
+        view.show(region)
 
-        self.window.run_command("move", {
-            "by": "characters", "forward": True
-        })
+class SelectCell(TextCommand):
+    def run(self, edit):
+        print("running select_cell")
+        view = self.view
+        sels = view.sel()
 
-        self.window.run_command("move", {
-            "by": "characters", "forward": False
-        })
+        print(sels)
+        s = find_surround(view, sels[0], '^```')
+        print(s)
+        # start = self.view.find('\n', s.begin()).begin()+1
+        start = s.begin()
+        # print('line', self.view.substr(self.view.line(start)))
+        # print('||', self.view.substr(sublime.Region(start, s.end()-1)), '||', sep='')
+        sels.clear()
+        new = sublime.Region(start, s.end()-1)
+        sels.add(new)
+        view.show(new)
 
-        
+
