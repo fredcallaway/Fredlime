@@ -138,7 +138,7 @@ class SelectCell(TextCommand):
         # print('line', self.view.substr(self.view.line(start)))
         # print('||', self.view.substr(sublime.Region(start, s.end()-1)), '||', sep='')
         sels.clear()
-        new = sublime.Region(start, s.end()-1)
+        new = sublime.Region(start, s.end()+3)
         sels.add(new)
         view.show(new)
 
