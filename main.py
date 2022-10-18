@@ -4,7 +4,11 @@ from sublime import Region
 import sublime
 import subprocess
 import os
-ITERM = os.path.join(os.path.dirname(__file__), "iterm.applescript")
+
+def here(path):
+    return os.path.join(os.path.dirname(__file__), path)
+
+ITERM = here("iterm.applescript")
 
 def osascript(*args):
     subprocess.check_call(["osascript"] + list(args))
@@ -28,7 +32,7 @@ class StartTerm(WindowCommand):
     def run(self, ssh=None, app='terminus', **kwargs):
         session = self.window.extract_variables().get("project_base_name", 'default')
         CC = '-CC' if app == 'iterm' else ''
-        tmux = 'tmux'
+        tmux = '~/homebrew/bin/tmux'
         if ssh in ('g1', 'g2', 'scotty'):
             tmux = '~/bin/tmux'
         cmd = '{} {} new-session -A -s {}'.format(tmux, CC, session)
@@ -41,6 +45,23 @@ class StartTerm(WindowCommand):
             sublime.set_timeout_async(self.move_to_right)
         elif app == 'iterm':
             osascript(ITERM, cmd, "True")
+
+    def move_to_right(self):
+        view = self.window.active_view()
+        if self.window.num_groups() == 1:
+            self.window.run_command("create_pane", dict(direction="right"))
+        self.window.set_view_index(view, 1, len(self.window.views_in_group(1)))
+
+class LazyGit(WindowCommand):
+    def run(self, ssh=None, app='iterm', **kwargs):
+        folder = self.window.extract_variables()['folder']
+        # session = self.window.extract_variables().get("project_base_name", 'default')
+        # CC = '-CC' if app == 'iterm' else ''
+        # tmux = 'tmux'
+        # if ssh in ('g1', 'g2', 'scotty'):
+            # tmux = '~/bin/tmux'
+        # cmd = 'cd {} && /Users/fredcallaway/bin/lazygit'.format(folder)
+        subprocess.check_call([here('lazygit.py'), folder])
 
     def move_to_right(self):
         view = self.window.active_view()
@@ -130,16 +151,31 @@ class SelectCell(TextCommand):
         view = self.view
         sels = view.sel()
 
-        print(sels)
-        s = find_surround(view, sels[0], '^```')
+        pattern = {
+            'R Markdown': r'^```{r.*}\n',
+            'LaTeX': r'^\\(\w*section|paragraph).*\n',
+        }.get(view.syntax().name, r'^# %%.*\n')
+        s = find_surround(view, sels[0], pattern)
+
         print(s)
         # start = self.view.find('\n', s.begin()).begin()+1
         start = s.begin()
         # print('line', self.view.substr(self.view.line(start)))
         # print('||', self.view.substr(sublime.Region(start, s.end()-1)), '||', sep='')
         sels.clear()
-        new = sublime.Region(start, s.end()+3)
+        new = sublime.Region(start, s.end())
         sels.add(new)
         view.show(new)
+
+
+
+class FoldCell(TextCommand):
+    def run(self, edit):
+        view = self.view
+        view.run_command("select_cell")
+        view.run_command("move", {"by": "characters", "forward": False, "extend":True})
+        view.run_command("reverse_select")
+        view.run_command("move", {"by": "lines", "forward": True, "extend":True})
+        view.run_command("fold")
 
 
