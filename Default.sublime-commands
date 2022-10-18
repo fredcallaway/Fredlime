@@ -3,6 +3,7 @@
     {"caption": "Terminal: G1", "command": "start_term", "args": {"ssh": "g1", "title": "G1"}},
     {"caption": "Terminal: G2", "command": "start_term", "args": {"ssh": "g2", "title": "G2"}},
     {"caption": "Terminal: Scotty", "command": "start_term", "args": {"ssh": "scotty", "title": "Scotty"}},
+    {"caption": "Terminal: Spock", "command": "start_term", "args": {"ssh": "spock", "title": "Spock"}},
     {"caption": "Terminal: x1e", "command": "start_term", "args": {"ssh": "x1e", "title": "x1e"}},
     {"caption": "Terminal: F1", "command": "start_term", "args": {"ssh": "f1", "title": "F1"}},
     {"caption": "Terminal: F2", "command": "start_term", "args": {"ssh": "f2", "title": "F2"}},
