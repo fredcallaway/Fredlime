@@ -4,6 +4,55 @@ from sublime import Region
 import platform
 import iterm2
 
+
+class TermCommand(WindowCommand):
+    def run(self, **kwargs):
+        try:
+            iterm2.run_until_complete(self.coro)
+        except:
+            print('error')
+
+    async def coro(self, connection):
+        app = await iterm2.async_get_app(connection)        
+        await app.async_activate()
+
+
+class StartTerm(WindowCommand):
+    def run(self, ssh=None, **kwargs):
+        session = self.window.extract_variables().get("project_base_name", 'default')
+        tmux = '~/homebrew/bin/tmux'
+        if ssh in ('g1', 'g2', 'scotty'):
+            tmux = '~/bin/tmux'
+        cmd = f'{tmux} -CC new-session -A -s {session}'
+        if ssh:
+            cmd = "ssh -t {} '{}'".format(ssh, cmd)
+        self.cmd = cmd
+
+        try:
+            iterm2.run_until_complete(self.run_iterm)
+        except BaseException as e:
+            print('ERROR', e)
+
+    async def run_iterm(self, connection):   
+        app = await iterm2.async_get_app(connection)
+        await app.async_activate()
+        myterm = await iterm2.Window.async_create(connection, command=self.cmd)
+
+
+class TermSendText(WindowCommand):
+    def run(self, text, **kwargs):
+        self.text = text + '\n'
+        try:
+            iterm2.run_until_complete(self.coro)
+        except:
+            print('error')
+
+    async def coro(self, connection):
+        app = await iterm2.async_get_app(connection)        
+        session = app.current_terminal_window.current_tab.current_session
+        await session.async_send_text(self.text)
+
+
 class LazyGit(WindowCommand):
     def run(self, **kwargs):
         self.folder = self.window.extract_variables()['folder']
