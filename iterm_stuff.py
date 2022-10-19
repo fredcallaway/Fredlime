@@ -1,8 +1,51 @@
-from sublime_plugin import WindowCommand, TextCommand
+from sublime_plugin import EventListener, WindowCommand, TextCommand
 from sublime import Region
 
 import platform
 import iterm2
+import re
+
+WINDOW_IDS = {}
+
+class FocusListener(EventListener):
+    """docstring for FocusListener"""
+    def on_activated(self, view, **kwargs):
+        self.vars = view.window().extract_variables()
+        self.project = self.vars.get('project_base_name', 'default')
+
+        file = self.vars['file']
+        print('new focus', file, WINDOW_IDS)
+        # return
+
+        try:
+            iterm2.run_until_complete(self.coro)
+        except BaseException as e:
+            print('ERORR StartRepl', e)
+
+    async def coro(self, connection):
+        app = await iterm2.async_get_app(connection)
+        if self.project not in WINDOW_IDS:
+            for window in app.windows:
+                # print(window.async_get_variable('user.project') == 'recstrats')
+                project = await window.async_get_variable('user.project')
+                WINDOW_IDS[project] = window.window_id
+                if project == self.project:
+                    break
+            else:
+                print("CANNOT FIND WINDOW")
+                return
+
+        window = app.get_window_by_id(WINDOW_IDS[self.project])
+        print("FOUND WINDOW!")
+        
+        await window.async_activate()
+
+        # tmux_conns = await iterm2.async_get_tmux_connections(connection)
+        # for tc in tmux_conns:
+        #     project = tc.owning_session.name.split(' ')[-1][:-1]
+        #     if project == self.project:
+        #         app.windows
+
 
 
 class TermCommand(WindowCommand):
@@ -10,20 +53,67 @@ class TermCommand(WindowCommand):
         try:
             iterm2.run_until_complete(self.coro)
         except:
-            print('error')
+            print('ERROR TermCommand')
 
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)        
         await app.async_activate()
 
+class StartRepl(WindowCommand):
+    def run(self, restart=False):
+        self.vars = self.window.extract_variables()
+        file, extension = self.vars['file_name'], self.vars['file_extension']
+        self. cmd = {
+            'jl': 'jl',
+            'r': 'r',
+            'rmd': 'r',
+            'py': 'ipython'
+        }.get(extension.lower(), None)
+
+        try:
+            iterm2.run_until_complete(self.coro)
+        except BaseException as e:
+            print('ERORR StartRepl', e)
+
+    async def coro(self, connection):
+        print('>>>>>> begin coro')
+        app = await iterm2.async_get_app(connection)
+        # await app.async_activate()
+        window = app.current_terminal_window
+        if not window:
+            print('NO WINDOW')
+            return
+            # window = await iterm2.Window.async_create(connection, command=cmd)
+        
+        tmux_conns = await iterm2.async_get_tmux_connections(connection)
+
+        project = self.vars.get('project_base_name', 'default')
+
+        # TODO we need to make sure we're using the right tmux conn
+        return
+
+        if tmux_conns:
+            tmux_conn = tmux_conns[0]
+            tab = await window.async_create_tmux_tab(tmux_conn)
+        else:
+            tab = await window.async_create_tab()
+
+        try:
+            print(self.vars['file_path'])
+        except:
+            print('cannot print vars')
+        print(self.vars['file_path'])
+        file_path = self.vars['file_path']
+        # await tab.current_session.async_send_text(f'echo 1')
+        await tab.current_session.async_send_text(f'cd "{file_path}" && {self.cmd}\n')
 
 class StartTerm(WindowCommand):
     def run(self, ssh=None, **kwargs):
-        session = self.window.extract_variables().get("project_base_name", 'default')
+        self.project = self.window.extract_variables().get("project_base_name", 'default')
         tmux = '~/homebrew/bin/tmux'
         if ssh in ('g1', 'g2', 'scotty'):
             tmux = '~/bin/tmux'
-        cmd = f'{tmux} -CC new-session -A -s {session}'
+        cmd = f'{tmux} -CC new-session -A -s {self.project}'
         if ssh:
             cmd = "ssh -t {} '{}'".format(ssh, cmd)
         self.cmd = cmd
@@ -36,7 +126,11 @@ class StartTerm(WindowCommand):
     async def run_iterm(self, connection):   
         app = await iterm2.async_get_app(connection)
         await app.async_activate()
-        myterm = await iterm2.Window.async_create(connection, command=self.cmd)
+        window = await iterm2.Window.async_create(connection, command=self.cmd)
+        await window.async_set_variable('user.project', self.project)
+        WINDOW_IDS[self.project] = window.window_id
+        print('UPDATED WINDOW_IDS', WINDOW_IDS)
+
 
 
 class TermSendText(WindowCommand):
@@ -45,7 +139,7 @@ class TermSendText(WindowCommand):
         try:
             iterm2.run_until_complete(self.coro)
         except:
-            print('error')
+            print('ERROR SendText')
 
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)        
@@ -60,7 +154,7 @@ class LazyGit(WindowCommand):
         try:
             iterm2.run_until_complete(self.lazygit)
         except:
-            print('error')
+            print('ERROR LazyGit')
 
     async def lazygit(self, connection):   
         app = await iterm2.async_get_app(connection)        
@@ -71,9 +165,7 @@ class LazyGit(WindowCommand):
             for tab in window.tabs:
                 for session in tab.sessions:
                     folder = await session.async_get_variable("user.lazygit-folder")
-                    print('folder', folder)
                     if folder == self.folder:
-                        print('Found session')
                         await session.async_activate()
                         return
 
@@ -81,15 +173,15 @@ class LazyGit(WindowCommand):
 
         # Start in a new tab or window
         cmd = f"zsh -dfic 'cd \"{self.folder}\" && /Users/fredcallaway/bin/lazygit'"
-        myterm = app.current_terminal_window
-        if not myterm:
-            myterm = await iterm2.Window.async_create(connection, command=cmd)
+        window = app.current_terminal_window
+        if not window:
+            window = await iterm2.Window.async_create(connection, command=cmd)
         else:
-            tab = await myterm.async_create_tab(command=cmd)
+            tab = await window.async_create_tab(command=cmd)
 
-        session = myterm.current_tab.current_session
+        session = window.current_tab.current_session
         await session.async_set_variable("user.lazygit-folder", self.folder)
-        await myterm.async_activate()
+        await window.async_activate()
 
 
 async def test(connection):
