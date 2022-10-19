@@ -6,6 +6,7 @@ import iterm2
 import re
 
 WINDOW_IDS = {}
+TAB_IDS = {}
 
 class FocusListener(EventListener):
     """docstring for FocusListener"""
@@ -34,17 +35,22 @@ class FocusListener(EventListener):
                     return
 
             window = app.get_window_by_id(WINDOW_IDS[self.project])
-            print("FOUND WINDOW!")
-            
             await window.async_activate()
 
-            # tmux_conns = await iterm2.async_get_tmux_connections(connection)
-            # for tc in tmux_conns:
-            #     project = tc.owning_session.name.split(' ')[-1][:-1]
-            #     if project == self.project:
-            #         app.windows
-        except Exception as e:
-            print('ERROR in', self.__class__.__name__, e)
+            if self.vars['file'] in TAB_IDS:
+                await app.get_tab_by_id(TAB_IDS[self.vars['file']]).async_activate()
+                return
+
+            # couldn't find tab
+            window = app.current_window
+            for tab in window.tabs:
+                title = await tab.async_get_variable('title')
+                if title[2:] == self.vars['file_name']:
+                    await tab.async_activate()
+                    TAB_IDS[self.vars['file']] = tab.tab_id
+                    return
+        except BaseException as e:
+            print('ERROR TermFocus', e)
 
 
 
