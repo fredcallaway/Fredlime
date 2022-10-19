@@ -8,55 +8,67 @@ import time
 
 WINDOW_IDS = {}
 TAB_IDS = {}
+AUTO_FOCUS = False
 
-# class FocusListener(EventListener):
-#     """docstring for FocusListener"""
-#     def on_activated(self, view, **kwargs):
-#         self.vars = view.window().extract_variables()
-#         self.project = self.vars.get('project_base_name', 'default')
+class TermToggleAutoFocus(WindowCommand):
+    def run(self, **kwargs):
+        global AUTO_FOCUS
+        AUTO_FOCUS = not AUTO_FOCUS
+        if AUTO_FOCUS:
+            self.window.run_command('term_focus')
 
-#         try:
-#             iterm2.run_until_complete(self.coro)
-#         except BaseException as e:
-#             print('ERORR StartRepl', e)
-    
+class FocusListener(EventListener):
+    """docstring for FocusListener"""
+    def on_activated(self, view, **kwargs):
+        if AUTO_FOCUS:
+            self.vars = view.window().extract_variables()
+            self.project = self.vars.get('project_base_name', 'default')
+            iterm2.run_until_complete(self.coro)
+
+    async def coro(self, connection):
+        await focus(self, connection)
+
 class TermFocus(WindowCommand):
     def run(self, **kwargs):
         self.vars = self.window.extract_variables()
         self.project = self.vars.get('project_base_name', 'default')
         iterm2.run_until_complete(self.coro)
 
+
     async def coro(self, connection):
-        try:
-            app = await iterm2.async_get_app(connection)
-            if self.project not in WINDOW_IDS:
-                for window in app.windows:
-                    # print(window.async_get_variable('user.project') == 'recstrats')
-                    project = await window.async_get_variable('user.project')
-                    WINDOW_IDS[project] = window.window_id
-                    if project == self.project:
-                        break
-                else:
-                    print("CANNOT FIND WINDOW")
-                    return
+        await focus(self, connection)
 
-            window = app.get_window_by_id(WINDOW_IDS[self.project])
-            await window.async_activate()
-
-            if self.vars['file'] in TAB_IDS:
-                await app.get_tab_by_id(TAB_IDS[self.vars['file']]).async_activate()
+async def focus(self, connection):
+    try:
+        app = await iterm2.async_get_app(connection)
+        if self.project not in WINDOW_IDS:
+            for window in app.windows:
+                # print(window.async_get_variable('user.project') == 'recstrats')
+                project = await window.async_get_variable('user.project')
+                WINDOW_IDS[project] = window.window_id
+                if project == self.project:
+                    break
+            else:
+                print("CANNOT FIND WINDOW")
                 return
 
-            # couldn't find tab
-            window = app.current_window
-            for tab in window.tabs:
-                title = await tab.async_get_variable('title')
-                if title[2:] == self.vars['file_name']:
-                    await tab.async_activate()
-                    TAB_IDS[self.vars['file']] = tab.tab_id
-                    return
-        except BaseException as e:
-            print('ERROR TermFocus', e)
+        window = app.get_window_by_id(WINDOW_IDS[self.project])
+        await window.async_activate()
+
+        if self.vars['file'] in TAB_IDS:
+            await app.get_tab_by_id(TAB_IDS[self.vars['file']]).async_activate()
+            return
+
+        # couldn't find tab
+        window = app.current_window
+        for tab in window.tabs:
+            title = await tab.async_get_variable('title')
+            if title[2:] == self.vars['file_name']:
+                await tab.async_activate()
+                TAB_IDS[self.vars['file']] = tab.tab_id
+                return
+    except BaseException as e:
+        print('ERROR TermFocus', e)
 
 
 
