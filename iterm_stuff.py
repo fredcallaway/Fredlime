@@ -114,7 +114,7 @@ class StartRepl(WindowCommand):
                 return
             # we have to use a callback because async_create_tmux_tab doesn't work in sublime
             # and async_send_command doesn't wait for the tab to be initialized
-            await tmux_conn.async_send_command(f'new-window "{self.cmd}; exec zsh"')
+            await tmux_conn.async_send_command(f'new-window "cd \'{self.file_path}\' && {self.cmd}; exec zsh"')
             set_timeout(lambda: iterm2.run_until_complete(self.update_tab), 1000)
             
         except BaseException as e:
