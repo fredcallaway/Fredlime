@@ -51,8 +51,15 @@ class JumpCell(TextCommand):
         pattern = {
             'R Markdown': r'^```{r.*}\n',
             'LaTeX': r'^\\(\w*section|paragraph).*\n',
+            'JSON': 'indent',
+            'JavaScript': 'indent'
         }.get(view.syntax().name, r'^# %%.*\n')
 
+        if pattern == 'indent':            
+            line = view.line(view.sel()[0].begin())
+            this_indent = len(view.substr(line)) - len(view.substr(line).lstrip(' '))
+            print(this_indent)
+            pattern = '\n' + this_indent * ' ' + r'(?=[^\s])'        
         region = find(view, sels[0], pattern, backward)
         if region.a == -1:
             return
