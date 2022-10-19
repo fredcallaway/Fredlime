@@ -8,16 +8,21 @@ import re
 WINDOW_IDS = {}
 TAB_IDS = {}
 
-class FocusListener(EventListener):
-    """docstring for FocusListener"""
-    def on_activated(self, view, **kwargs):
-        self.vars = view.window().extract_variables()
+# class FocusListener(EventListener):
+#     """docstring for FocusListener"""
+#     def on_activated(self, view, **kwargs):
+#         self.vars = view.window().extract_variables()
+#         self.project = self.vars.get('project_base_name', 'default')
+
+#         try:
+#             iterm2.run_until_complete(self.coro)
+#         except BaseException as e:
+#             print('ERORR StartRepl', e)
+    
+class TermFocus(WindowCommand):
+    def run(self, **kwargs):
+        self.vars = self.window.extract_variables()
         self.project = self.vars.get('project_base_name', 'default')
-
-        file = self.vars['file']
-        print('new focus', file, WINDOW_IDS)
-        # return
-
         iterm2.run_until_complete(self.coro)
 
     async def coro(self, connection):
