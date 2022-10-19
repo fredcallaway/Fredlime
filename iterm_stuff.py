@@ -53,6 +53,8 @@ async def focus(self, connection):
                 return
 
         window = app.get_window_by_id(WINDOW_IDS[self.project])
+        if not window:
+            return
         await window.async_activate()
 
         if self.vars['file'] in TAB_IDS:
@@ -69,7 +71,6 @@ async def focus(self, connection):
                 return
     except BaseException as e:
         print('ERROR TermFocus', e)
-
 
 
 class TermCommand(WindowCommand):
@@ -91,9 +92,9 @@ class StartRepl(WindowCommand):
         self.file = self.vars['file']
         file, extension = self.vars['file_name'], self.vars['file_extension']
         self. cmd = {
-            'jl': 'jl',
-            'r': 'r',
-            'rmd': 'r',
+            'jl': '~/bin/jl',
+            'r': 'radian',
+            'rmd': 'radian',
             'py': 'ipython'
         }.get(extension.lower(), None)
 
