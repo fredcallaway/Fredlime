@@ -1,9 +1,10 @@
 from sublime_plugin import EventListener, WindowCommand, TextCommand
-from sublime import Region
+from sublime import Region, set_timeout
 
 import platform
 import iterm2
 import re
+import time
 
 WINDOW_IDS = {}
 TAB_IDS = {}
@@ -73,6 +74,9 @@ class TermCommand(WindowCommand):
 class StartRepl(WindowCommand):
     def run(self, restart=False):
         self.vars = self.window.extract_variables()
+        self.project = self.vars.get('project_base_name', 'default')
+        self.file_path = self.vars['file_path']
+        self.file = self.vars['file']
         file, extension = self.vars['file_name'], self.vars['file_extension']
         self. cmd = {
             'jl': 'jl',
@@ -85,38 +89,47 @@ class StartRepl(WindowCommand):
 
     async def coro(self, connection):
         try:
-            print('>>>>>> begin coro')
             app = await iterm2.async_get_app(connection)
-            # await app.async_activate()
             window = app.current_terminal_window
             if not window:
                 print('NO WINDOW')
                 return
-                # window = await iterm2.Window.async_create(connection, command=cmd)
             
+            # get tmux connection
             tmux_conns = await iterm2.async_get_tmux_connections(connection)
-
-            project = self.vars.get('project_base_name', 'default')
+            for tmux_conn in tmux_conns:
+                project = tmux_conn.owning_session.name.split(' ')[-1][:-1]
+                if project == self.project:
+                    print('found')
+                    break
+            else:
+                print('not found')
+                return
 
             # TODO we need to make sure we're using the right tmux conn
-            return
-
-            if tmux_conns:
-                tmux_conn = tmux_conns[0]
-                tab = await window.async_create_tmux_tab(tmux_conn)
-            else:
-                tab = await window.async_create_tab()
-
-            try:
-                print(self.vars['file_path'])
-            except:
-                print('cannot print vars')
-            print(self.vars['file_path'])
-            file_path = self.vars['file_path']
-            # await tab.current_session.async_send_text(f'echo 1')
-            await tab.current_session.async_send_text(f'cd "{file_path}" && {self.cmd}\n')
-        except Exception as e:
+            # window = app.current_window
+            window_project = await window.async_get_variable('user.project')
+            if window_project != self.project:
+                print("BAD PROJECT WINDOW")
+                return
+            # we have to use a callback because async_create_tmux_tab doesn't work in sublime
+            # and async_send_command doesn't wait for the tab to be initialized
+            await tmux_conn.async_send_command(f'new-window "{self.cmd}; exec zsh"')
+            set_timeout(lambda: iterm2.run_until_complete(self.update_tab), 1000)
+            
+        except BaseException as e:
             print('ERROR in', self.__class__.__name__, e)
+
+    async def update_tab(self, connection):
+        try:
+            app = await iterm2.async_get_app(connection)
+            tab = app.current_terminal_window.current_tab
+            TAB_IDS[self.file] = tab.tab_id
+            await tab.async_set_title(self.vars['file_name'])
+            await tab.current_session.async_set_variable('user.file', self.file)
+
+        except BaseException as e:
+            print('ERROR in update_tab of', self.__class__.__name__, e)
 
 class StartTerm(WindowCommand):
     def run(self, ssh=None, **kwargs):
