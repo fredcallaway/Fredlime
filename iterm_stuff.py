@@ -8,18 +8,13 @@ class LazyGit(WindowCommand):
     def run(self, **kwargs):
         self.folder = self.window.extract_variables()['folder']
         # subprocess.check_call([here('lazygit.py'), self.folder])
-        self.test()
-
-    def test(self):
         try:
             iterm2.run_until_complete(self.lazygit)
         except:
-            print('lazygit error')
+            print('error')
 
     async def lazygit(self, connection):   
-        app = await iterm2.async_get_app(connection)
-        
-        # Foreground the app
+        app = await iterm2.async_get_app(connection)        
         await app.async_activate()
 
         # check if already exists and activate
