@@ -71,12 +71,33 @@ class TermFocus(_TermCommand):
         app = await iterm2.async_get_app(connection)
         await focus(connection, self.project, self.vars['file_name'])
 
+
+class StartTerm(_TermCommand):
+    def initialize(self, ssh=None, **kwargs):
+        tmux = '~/homebrew/bin/tmux'
+        if ssh in ('g1', 'g2', 'scotty'):
+            tmux = '~/bin/tmux'
+        cmd = f'{tmux} -CC new-session -A -s {self.project}'
+        if ssh:
+            cmd = "ssh -t {} '{}'".format(ssh, cmd)
+        self.cmd = cmd
+
+    @catch_exceptions
+    async def coro(self, connection):
+        app = await iterm2.async_get_app(connection)
+        # await app.async_activate()
+        window = await iterm2.Window.async_create(connection, command=self.cmd)
+        await window.async_set_variable('user.project', self.project)
+        WINDOW_IDS[self.project] = window.window_id
+        print('UPDATED WINDOW_IDS', WINDOW_IDS)
+
+
 class StartRepl(_TermCommand):
     def initialize(self, **kwargs):
         self.file_path = self.vars['file_path']
         self.file = self.vars['file']
         file, extension = self.vars['file_name'], self.vars['file_extension']
-        self. cmd = {
+        self.cmd = {
             'jl': '~/bin/jl',
             'r': 'radian',
             'rmd': 'radian',
@@ -118,26 +139,6 @@ class StartRepl(_TermCommand):
         TAB_IDS[self.file] = tab.tab_id
         await tab.async_set_title(self.vars['file_name'])
         await tab.current_session.async_set_variable('user.file', self.file)
-
-
-class StartTerm(_TermCommand):
-    def initialize(self, ssh=None, **kwargs):
-        tmux = '~/homebrew/bin/tmux'
-        if ssh in ('g1', 'g2', 'scotty'):
-            tmux = '~/bin/tmux'
-        cmd = f'{tmux} -CC new-session -A -s {self.project}'
-        if ssh:
-            cmd = "ssh -t {} '{}'".format(ssh, cmd)
-        self.cmd = cmd
-
-    @catch_exceptions
-    async def coro(self, connection):
-        app = await iterm2.async_get_app(connection)
-        # await app.async_activate()
-        window = await iterm2.Window.async_create(connection, command=self.cmd)
-        await window.async_set_variable('user.project', self.project)
-        WINDOW_IDS[self.project] = window.window_id
-        print('UPDATED WINDOW_IDS', WINDOW_IDS)
 
 
 class TermSendText(_TermCommand):
@@ -211,7 +212,7 @@ async def focus(connection, project, file_name=None):
     app = await iterm2.async_get_app(connection)
     window = await get_window(app, project)
     await window.async_activate()
-    
+
     if file_name is not None:
         tab = await get_tab(app, file_name)
         await tab.async_activate()
