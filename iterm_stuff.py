@@ -80,6 +80,7 @@ class StartTerm(_TermCommand):
     async def coro(self, connection):
         await create_window(connection, self.project)
 
+
 class StartRepl(_TermCommand):
     def initialize(self, **kwargs):
         self.file_path = self.vars['file_path']
@@ -91,33 +92,32 @@ class StartRepl(_TermCommand):
             'rmd': 'radian',
             'py': 'ipython'
         }.get(extension.lower(), None)
+        # self.timeouts = 0
 
     @catch_exceptions
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)
-        window = app.current_terminal_window
-        if not window:
-            print('NO WINDOW')
+        window = await get_window(app, self.project)
+        if window is None:
             return
-        
-        # get tmux connection
-        tmux_conns = await iterm2.async_get_tmux_connections(connection)
-        for tmux_conn in tmux_conns:
-            project = tmux_conn.owning_session.name.split(' ')[-1][:-1]
-            if project == self.project:
-                print('found')
-                break
-        else:
-            print('not found')
-            return
+            # if self.timeouts == 0:
+            #     await create_window(connection, self.project)
+            # elif self.timeouts <= 5:
+            #     self.timeouts += 1
+            #     timeout(lambda: iterm2.run_until_complete(self.coro), 1000)
+            # else:
+            #     raise Exception("Too many timeouts")
+            # return
 
+        # this should never happen, could delete
         window_project = await window.async_get_variable('user.project')
         if window_project != self.project:
-            print("BAD PROJECT WINDOW")
-            return
+            raise Exception("BAD PROJECT WINDOW")
+
+        tmux = await get_tmux(connection, self.project)
+        await tmux.async_send_command(f'new-window "cd \'{self.file_path}\' && {self.cmd}; exec zsh"')
         # we have to use a callback because async_create_tmux_tab doesn't work in sublime
         # and async_send_command doesn't wait for the tab to be initialized
-        await tmux_conn.async_send_command(f'new-window "cd \'{self.file_path}\' && {self.cmd}; exec zsh"')
         set_timeout(lambda: iterm2.run_until_complete(self.update_tab), 1000)
     
     @catch_exceptions            
@@ -185,8 +185,9 @@ async def create_window(connection, project, ssh=None):
     window = await iterm2.Window.async_create(connection, command=cmd)
     await window.async_set_variable('user.project', project)
     WINDOW_IDS[project] = window.window_id
+    return window
 
-async def get_window(app, project, create_if_missing=False):
+async def get_window(app, project):
     try:
         return app.get_window_by_id(WINDOW_IDS[project])
     except KeyError:
@@ -195,10 +196,6 @@ async def get_window(app, project, create_if_missing=False):
             if this_project == project:
                 WINDOW_IDS[project] = window.window_id
                 return window
-    if create_if_missing:
-        return create_window(connection, project)
-    else:
-        raise Exception("Can't find window")
 
 async def get_tab(app, file_name):
     try:
@@ -210,6 +207,16 @@ async def get_tab(app, file_name):
             if title[2:] == file_name:
                 TAB_IDS[file_name] = tab.tab_id
                 return tab
+
+async def get_tmux(connection, project):
+    # get tmux connection
+    tmux_conns = await iterm2.async_get_tmux_connections(connection)
+    for tmux_conn in tmux_conns:
+        tmux_session = tmux_conn.owning_session.name.split(' ')[-1][:-1]
+        if tmux_session == project:
+            return tmux_conn
+    
+    raise Exception("Could not find tmux connection")
 
 async def focus(connection, project, file_name=None):
     app = await iterm2.async_get_app(connection)
