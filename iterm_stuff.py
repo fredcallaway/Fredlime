@@ -2,19 +2,22 @@ from sublime_plugin import EventListener, WindowCommand, TextCommand
 from sublime import Region, set_timeout
 
 from functools import wraps
+import traceback
+
 import iterm2
 
 WINDOW_IDS = {}
 TAB_IDS = {}
 AUTO_FOCUS = False
 
-def catch_exceptions(method):
-    @wraps(method)
-    async def wrapped(self, connection):
+def safe(func):
+    @wraps(func)
+    async def wrapped(*args):
         try:
-            return await method(self, connection)
+            return await func(*args)
         except Exception as e:
-            print('ERROR in', self.__class__.__name__, e)
+            print('ERROR in', func, e)
+            traceback.print_exc()
     return wrapped
 
 class _TermCommand(WindowCommand):
@@ -27,7 +30,7 @@ class _TermCommand(WindowCommand):
     def initialize(self, **kwargs):
         pass
 
-    @catch_exceptions
+    @safe
     async def coro(self, connection):
         ...
 
@@ -66,7 +69,7 @@ class FocusListener(EventListener):
 
 
 class TermFocus(_TermCommand):
-    @catch_exceptions
+    @safe
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)
         await focus(connection, self.project, self.vars['file_name'])
@@ -76,13 +79,13 @@ class StartTerm(_TermCommand):
     def initialize(self, ssh=None, **kwargs):
         self.ssh = ssh
 
-    @catch_exceptions
+    @safe
     async def coro(self, connection):
         await create_window(connection, self.project)
 
 
 class EndTerm(_TermCommand):
-    @catch_exceptions
+    @safe
     async def coro(self, connection):
         window = await get_window(connection, self.project)
         window.async_close()
@@ -101,7 +104,7 @@ class StartRepl(_TermCommand):
         }.get(extension.lower(), None)
         # self.timeouts = 0
 
-    @catch_exceptions
+    @safe
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)
         window = await get_window(app, self.project)
@@ -127,7 +130,7 @@ class StartRepl(_TermCommand):
         # and async_send_command doesn't wait for the tab to be initialized
         set_timeout(lambda: iterm2.run_until_complete(self.update_tab), 1000)
     
-    @catch_exceptions            
+    @safe            
     async def update_tab(self, connection):
         app = await iterm2.async_get_app(connection)
         tab = app.current_terminal_window.current_tab
@@ -140,7 +143,7 @@ class TermSendText(_TermCommand):
     def initialize(self, text, **kwargs):
         self.text = text + '\n'
 
-    @catch_exceptions
+    @safe
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)        
         session = app.current_terminal_window.current_tab.current_session
@@ -151,7 +154,7 @@ class LazyGit(_TermCommand):
     def initialize(self, **kwargs):
         self.folder = self.window.extract_variables()['folder']
 
-    @catch_exceptions
+    @safe
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)        
         await app.async_activate()
@@ -228,6 +231,8 @@ async def get_tmux(connection, project):
 async def focus(connection, project, file_name=None):
     app = await iterm2.async_get_app(connection)
     window = await get_window(app, project)
+    if window is None:
+        return
     await window.async_activate()
 
     if file_name is not None:
