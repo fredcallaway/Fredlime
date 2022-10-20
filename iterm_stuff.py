@@ -84,11 +84,12 @@ class StartTerm(_TermCommand):
         await create_window(connection, self.project)
 
 
-class EndTerm(_TermCommand):
+class CloseTerm(_TermCommand):
     @safe
     async def coro(self, connection):
-        window = await get_window(connection, self.project)
-        window.async_close()
+        app = await iterm2.async_get_app(connection)
+        window = await get_window(app, self.project)
+        await window.async_close(force=True)
         
 
 class StartRepl(_TermCommand):
