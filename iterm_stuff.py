@@ -81,6 +81,13 @@ class StartTerm(_TermCommand):
         await create_window(connection, self.project)
 
 
+class EndTerm(_TermCommand):
+    @catch_exceptions
+    async def coro(self, connection):
+        window = await get_window(connection, self.project)
+        window.async_close()
+        
+
 class StartRepl(_TermCommand):
     def initialize(self, **kwargs):
         self.file_path = self.vars['file_path']

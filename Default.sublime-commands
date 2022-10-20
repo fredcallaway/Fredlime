@@ -1,4 +1,5 @@
 [    
+    {"caption": "Terminal: Close", "command": "end_term"},
     {"caption": "Terminal: Local", "command": "start_term", "args": {"title": "Local"}},
     {"caption": "Terminal: G1", "command": "start_term", "args": {"ssh": "g1", "title": "G1"}},
     {"caption": "Terminal: G2", "command": "start_term", "args": {"ssh": "g2", "title": "G2"}},
