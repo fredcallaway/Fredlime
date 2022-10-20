@@ -37,17 +37,20 @@ class _TermCommand(WindowCommand):
 
 class TermListener(EventListener):
     def on_activated(self, view, **kwargs):
-        print('on_activated')
-        
+        if AUTO_FOCUS:
+            view.window().run_command('term_focus')
+
     def on_pre_close_window(self, window, **kwargs):
         print('on_pre_close_window')
-
+        
     def on_load_project(self, window, **kwargs):
         print('load and start')
         window.run_command('start_term')
 
     def on_pre_close_project(self, window, **kwargs):
         print('on_pre_close_project')
+        window.run_command('close_term')
+
 
 class TermToggleAutoFocus(WindowCommand):
     def run(self, **kwargs):
@@ -55,17 +58,6 @@ class TermToggleAutoFocus(WindowCommand):
         AUTO_FOCUS = not AUTO_FOCUS
         if AUTO_FOCUS:
             self.window.run_command('term_focus')
-
-class FocusListener(EventListener):
-    """docstring for FocusListener"""
-    def on_activated(self, view, **kwargs):
-        if AUTO_FOCUS:
-            self.vars = view.window().extract_variables()
-            self.project = self.vars.get('project_base_name', 'default')
-            iterm2.run_until_complete(self.coro)
-
-    async def coro(self, connection):
-        await focus(connection, self.project, self.vars['file_name'])
 
 
 class TermFocus(_TermCommand):
@@ -152,36 +144,30 @@ class TermSendText(_TermCommand):
 
 
 class LazyGit(_TermCommand):
-    def initialize(self, **kwargs):
-        self.folder = self.window.extract_variables()['folder']
 
     @safe
     async def coro(self, connection):
-        app = await iterm2.async_get_app(connection)        
-        await app.async_activate()
+        app = await iterm2.async_get_app(connection)
+        window = await get_window(app, self.project)
+        if window is None:
+            return
 
         # check if already exists and activate
-        for window in app.windows:
-            for tab in window.tabs:
-                for session in tab.sessions:
-                    folder = await session.async_get_variable("user.lazygit-folder")
-                    if folder == self.folder:
-                        await session.async_activate()
-                        return
-
-        # self.folder = '/Users/fredcallaway/projects/recstrats'
-
-        # Start in a new tab or window
-        cmd = f"zsh -dfic 'cd \"{self.folder}\" && /Users/fredcallaway/bin/lazygit'"
-        window = app.current_terminal_window
-        if not window:
-            window = await iterm2.Window.async_create(connection, command=cmd)
-        else:
+        lg_tab = None
+        for tab in window.tabs:
+            for session in tab.sessions:
+                if (await session.async_get_variable("user.lazygit")):
+                    lg_tab = tab
+                    break
+        if lg_tab is None:
+            print('\n'*30)
+            cmd = f"zsh -dfic 'cd \"{self.vars['folder']}\" && /Users/fredcallaway/bin/lazygit'"
             tab = await window.async_create_tab(command=cmd)
+            await tab.current_session.async_set_variable("user.lazygit", True)
 
-        session = window.current_tab.current_session
-        await session.async_set_variable("user.lazygit-folder", self.folder)
-        await window.async_activate()
+        await tab.async_activate()
+        await app.async_activate()
+        print('done')
 
 
 async def create_window(connection, project, ssh=None):
