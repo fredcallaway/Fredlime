@@ -10,6 +10,21 @@ WINDOW_IDS = {}
 TAB_IDS = {}
 AUTO_FOCUS = False
 
+
+class TermListener(EventListener):
+    def on_activated(self, view, **kwargs):
+        print('on_activated')
+        
+    def on_pre_close_window(self, window, **kwargs):
+        print('on_pre_close_window')
+
+    def on_load_project(self, window, **kwargs):
+        print('load and start')
+        window.run_command('start_term')
+
+    def on_pre_close_project(self, window, **kwargs):
+        print('on_pre_close_project')
+
 class TermToggleAutoFocus(WindowCommand):
     def run(self, **kwargs):
         global AUTO_FOCUS
@@ -144,6 +159,7 @@ class StartRepl(WindowCommand):
         except BaseException as e:
             print('ERROR in update_tab of', self.__class__.__name__, e)
 
+
 class StartTerm(WindowCommand):
     def run(self, ssh=None, **kwargs):
         self.project = self.window.extract_variables().get("project_base_name", 'default')
@@ -160,14 +176,13 @@ class StartTerm(WindowCommand):
     async def coro(self, connection):
         try:
             app = await iterm2.async_get_app(connection)
-            await app.async_activate()
+            # await app.async_activate()
             window = await iterm2.Window.async_create(connection, command=self.cmd)
             await window.async_set_variable('user.project', self.project)
             WINDOW_IDS[self.project] = window.window_id
             print('UPDATED WINDOW_IDS', WINDOW_IDS)
         except Exception as e:
             print('ERROR in', self.__class__.__name__, e)
-
 
 
 class TermSendText(WindowCommand):
