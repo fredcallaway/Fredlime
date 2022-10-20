@@ -62,49 +62,14 @@ class FocusListener(EventListener):
             iterm2.run_until_complete(self.coro)
 
     async def coro(self, connection):
-        await focus(self, connection)
+        await focus(connection, self.project, self.vars['file_name'])
 
 
 class TermFocus(_TermCommand):
     @catch_exceptions
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)
-        await focus(self, connection)
-
-async def focus(self, connection):
-    try:
-        app = await iterm2.async_get_app(connection)
-        if self.project not in WINDOW_IDS:
-            for window in app.windows:
-                # print(window.async_get_variable('user.project') == 'recstrats')
-                project = await window.async_get_variable('user.project')
-                WINDOW_IDS[project] = window.window_id
-                if project == self.project:
-                    break
-            else:
-                print("CANNOT FIND WINDOW")
-                return
-
-        window = app.get_window_by_id(WINDOW_IDS[self.project])
-        if not window:
-            return
-        await window.async_activate()
-
-        if self.vars['file'] in TAB_IDS:
-            await app.get_tab_by_id(TAB_IDS[self.vars['file']]).async_activate()
-            return
-
-        # couldn't find tab
-        window = app.current_window
-        for tab in window.tabs:
-            title = await tab.async_get_variable('title')
-            if title[2:] == self.vars['file_name']:
-                await tab.async_activate()
-                TAB_IDS[self.vars['file']] = tab.tab_id
-                return
-    except BaseException as e:
-        print('ERROR TermFocus', e)
-
+        await focus(connection, self.project, self.vars['file_name'])
 
 class StartRepl(_TermCommand):
     def initialize(self, **kwargs):
@@ -153,6 +118,7 @@ class StartRepl(_TermCommand):
         TAB_IDS[self.file] = tab.tab_id
         await tab.async_set_title(self.vars['file_name'])
         await tab.current_session.async_set_variable('user.file', self.file)
+
 
 class StartTerm(_TermCommand):
     def initialize(self, ssh=None, **kwargs):
@@ -218,8 +184,34 @@ class LazyGit(_TermCommand):
         await window.async_activate()
 
 
-async def test(connection):
-    app = await iterm2.async_get_app(connection)
-    session = app.current_terminal_window.tabs[0].sessions[0]
-    await session.async_send_text('x = 1\n')
 
+async def get_window(app, project):
+    try:
+        return app.get_window_by_id(WINDOW_IDS[project])
+    except KeyError:
+        for window in app.windows:
+            this_project = await window.async_get_variable('user.project')
+            if this_project == project:
+                WINDOW_IDS[project] = window.window_id
+                return window
+    raise Exception("Can't find window")
+
+async def get_tab(app, file_name):
+    try:
+        return app.get_tab_by_id(TAB_IDS[file_name])
+    except KeyError:
+        for tab in app.current_window.tabs:
+            # could try getting a more specific variable here
+            title = await tab.async_get_variable('title')
+            if title[2:] == file_name:
+                TAB_IDS[file_name] = tab.tab_id
+                return tab
+
+async def focus(connection, project, file_name=None):
+    app = await iterm2.async_get_app(connection)
+    window = await get_window(app, project)
+    await window.async_activate()
+    
+    if file_name is not None:
+        tab = await get_tab(app, file_name)
+        await tab.async_activate()
