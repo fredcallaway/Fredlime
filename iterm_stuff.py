@@ -70,27 +70,15 @@ class TermFocus(_TermCommand):
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)
         await focus(connection, self.project, self.vars['file_name'])
-
+    
 
 class StartTerm(_TermCommand):
     def initialize(self, ssh=None, **kwargs):
-        tmux = '~/homebrew/bin/tmux'
-        if ssh in ('g1', 'g2', 'scotty'):
-            tmux = '~/bin/tmux'
-        cmd = f'{tmux} -CC new-session -A -s {self.project}'
-        if ssh:
-            cmd = "ssh -t {} '{}'".format(ssh, cmd)
-        self.cmd = cmd
+        self.ssh = ssh
 
     @catch_exceptions
     async def coro(self, connection):
-        app = await iterm2.async_get_app(connection)
-        # await app.async_activate()
-        window = await iterm2.Window.async_create(connection, command=self.cmd)
-        await window.async_set_variable('user.project', self.project)
-        WINDOW_IDS[self.project] = window.window_id
-        print('UPDATED WINDOW_IDS', WINDOW_IDS)
-
+        await create_window(connection, self.project)
 
 class StartRepl(_TermCommand):
     def initialize(self, **kwargs):
@@ -185,8 +173,20 @@ class LazyGit(_TermCommand):
         await window.async_activate()
 
 
+async def create_window(connection, project, ssh=None):
+    tmux = '~/homebrew/bin/tmux'
+    if ssh in ('g1', 'g2', 'scotty'):
+        tmux = '~/bin/tmux'
+    cmd = f'{tmux} -CC new-session -A -s {project}'
+    if ssh:
+        cmd = f"ssh -t {ssh} '{cmd}'"
 
-async def get_window(app, project):
+    app = await iterm2.async_get_app(connection)
+    window = await iterm2.Window.async_create(connection, command=cmd)
+    await window.async_set_variable('user.project', project)
+    WINDOW_IDS[project] = window.window_id
+
+async def get_window(app, project, create_if_missing=False):
     try:
         return app.get_window_by_id(WINDOW_IDS[project])
     except KeyError:
@@ -195,7 +195,10 @@ async def get_window(app, project):
             if this_project == project:
                 WINDOW_IDS[project] = window.window_id
                 return window
-    raise Exception("Can't find window")
+    if create_if_missing:
+        return create_window(connection, project)
+    else:
+        raise Exception("Can't find window")
 
 async def get_tab(app, file_name):
     try:
