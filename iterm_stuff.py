@@ -10,14 +10,24 @@ WINDOW_IDS = {}
 TAB_IDS = {}
 AUTO_FOCUS = False
 
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("/tmp/iterm.log"),
+        logging.StreamHandler()
+    ]
+)
+
 def safe(func):
     @wraps(func)
     async def wrapped(*args):
         try:
             return await func(*args)
         except Exception as e:
-            print('ERROR in', func, e)
-            traceback.print_exc()
+            logging.exception(f'in {func}')
+            
     return wrapped
 
 class _TermCommand(WindowCommand):
@@ -41,14 +51,14 @@ class TermListener(EventListener):
             view.window().run_command('term_focus')
 
     def on_pre_close_window(self, window, **kwargs):
-        print('on_pre_close_window')
+        logging.debug('on_pre_close_window')
         
     def on_load_project(self, window, **kwargs):
-        print('load and start')
+        logging.debug('load and start')
         window.run_command('start_term')
 
     def on_pre_close_project(self, window, **kwargs):
-        print('on_pre_close_project')
+        logging.debug('on_pre_close_project')
         window.run_command('close_term')
 
 
@@ -81,7 +91,8 @@ class CloseTerm(_TermCommand):
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)
         window = await get_window(app, self.project)
-        await window.async_close(force=True)
+        if window:
+            await window.async_close(force=True)
         
 
 class StartRepl(_TermCommand):
@@ -160,14 +171,12 @@ class LazyGit(_TermCommand):
                     lg_tab = tab
                     break
         if lg_tab is None:
-            print('\n'*30)
             cmd = f"zsh -dfic 'cd \"{self.vars['folder']}\" && /Users/fredcallaway/bin/lazygit'"
             tab = await window.async_create_tab(command=cmd)
             await tab.current_session.async_set_variable("user.lazygit", True)
 
         await tab.async_activate()
         await app.async_activate()
-        print('done')
 
 
 async def create_window(connection, project, ssh=None):
@@ -215,6 +224,7 @@ async def get_tmux(connection, project):
     
     raise Exception("Could not find tmux connection")
 
+
 async def focus(connection, project, file_name=None):
     app = await iterm2.async_get_app(connection)
     window = await get_window(app, project)
@@ -224,4 +234,5 @@ async def focus(connection, project, file_name=None):
 
     if file_name is not None:
         tab = await get_tab(app, file_name)
-        await tab.async_activate()
+        if tab:
+            await tab.async_activate()
