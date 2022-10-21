@@ -149,9 +149,13 @@ class TermSendText(_TermCommand):
 
     @safe
     async def coro(self, connection):
-        app = await iterm2.async_get_app(connection)        
-        session = app.current_terminal_window.current_tab.current_session
+        app = await iterm2.async_get_app(connection)
+        window = await get_window(app, self.project)
+        if window is None:
+            return
+        session = window.current_tab.current_session
         await session.async_send_text(self.text)
+        await window.async_activate()
 
 
 class LazyGit(_TermCommand):
