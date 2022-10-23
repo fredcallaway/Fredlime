@@ -74,7 +74,8 @@ class TermFocus(_TermCommand):
     @safe
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)
-        await focus(connection, self.project, self.vars['file_name'])
+        if 'file_name' in self.vars:
+            await focus(connection, self.project, self.vars['file_name'])
     
 
 class StartTerm(_TermCommand):
@@ -90,10 +91,12 @@ class CloseTerm(_TermCommand):
     @safe
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)
-        window = await get_window(app, self.project)
-        if window:
-            await window.async_close(force=True)
-        
+
+        for session in app.buried_sessions:
+            if project_name(session) == self.project:
+                await session.async_close()
+                return
+
 
 class StartRepl(_TermCommand):
     def initialize(self, **kwargs):
@@ -134,7 +137,7 @@ class StartRepl(_TermCommand):
         # and async_send_command doesn't wait for the tab to be initialized
         set_timeout(lambda: iterm2.run_until_complete(self.update_tab), 1000)
     
-    @safe            
+    @safe
     async def update_tab(self, connection):
         app = await iterm2.async_get_app(connection)
         tab = app.current_terminal_window.current_tab
@@ -207,6 +210,7 @@ async def get_window(app, project):
                 WINDOW_IDS[project] = window.window_id
                 return window
 
+
 async def get_tab(app, file_name):
     try:
         return app.get_tab_by_id(TAB_IDS[file_name])
@@ -218,15 +222,17 @@ async def get_tab(app, file_name):
                 TAB_IDS[file_name] = tab.tab_id
                 return tab
 
+def project_name(session):
+    return session.name.split(' ')[-1][:-1]
+
 async def get_tmux(connection, project):
     # get tmux connection
     tmux_conns = await iterm2.async_get_tmux_connections(connection)
     for tmux_conn in tmux_conns:
-        tmux_session = tmux_conn.owning_session.name.split(' ')[-1][:-1]
-        if tmux_session == project:
+        if project_name(tmux_conn.owning_session) == project:
             return tmux_conn
     
-    raise Exception("Could not find tmux connection")
+    raise Exception("Could not find tmux connection for " + project)
 
 
 async def focus(connection, project, file_name=None):
