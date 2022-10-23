@@ -8,7 +8,8 @@ import iterm2
 
 WINDOW_IDS = {}
 TAB_IDS = {}
-AUTO_FOCUS = False
+AUTO_FOCUS_TAB = False
+AUTO_FOCUS_WINDOW = True
 
 import logging
 logging.basicConfig(
@@ -47,7 +48,7 @@ class _TermCommand(WindowCommand):
 
 class TermListener(EventListener):
     def on_activated(self, view, **kwargs):
-        if AUTO_FOCUS:
+        if AUTO_FOCUS_WINDOW:
             view.window().run_command('term_focus')
 
     def on_pre_close_window(self, window, **kwargs):
@@ -64,9 +65,9 @@ class TermListener(EventListener):
 
 class TermToggleAutoFocus(WindowCommand):
     def run(self, **kwargs):
-        global AUTO_FOCUS
-        AUTO_FOCUS = not AUTO_FOCUS
-        if AUTO_FOCUS:
+        global AUTO_FOCUS_TAB
+        AUTO_FOCUS_TAB = not AUTO_FOCUS_TAB
+        if AUTO_FOCUS_TAB:
             self.window.run_command('term_focus')
 
 
@@ -74,8 +75,8 @@ class TermFocus(_TermCommand):
     @safe
     async def coro(self, connection):
         app = await iterm2.async_get_app(connection)
-        if 'file_name' in self.vars:
-            await focus(connection, self.project, self.vars['file_name'])
+        file_name = self.vars.get('file_name', None) if AUTO_FOCUS_TAB else None
+        await focus(connection, self.project, self.vars['file_name'])
     
 
 class StartTerm(_TermCommand):
