@@ -119,35 +119,20 @@ class StartRepl(_TermCommand):
         window = await get_window(app, self.project)
         if window is None:
             return
-            # if self.timeouts == 0:
-            #     await create_window(connection, self.project)
-            # elif self.timeouts <= 5:
-            #     self.timeouts += 1
-            #     timeout(lambda: iterm2.run_until_complete(self.coro), 1000)
-            # else:
-            #     raise Exception("Too many timeouts")
-            # return
 
-        # this should never happen, could delete
         window_project = await window.async_get_variable('user.project')
         if window_project != self.project:
             raise Exception("BAD PROJECT WINDOW")
 
-        tmux = await get_tmux(connection, self.project)        
-        await tmux.async_send_command(f'new-window "zsh -ic \"{self.cmd}\""')
-        # await tmux.async_send_command(f'new-window "cd \'{self.file_path}\' && {self.cmd}; exec zsh"')
-        # we have to use a callback because async_create_tmux_tab doesn't work in sublime
-        # and async_send_command doesn't wait for the tab to be initialized
-        set_timeout(lambda: iterm2.run_until_complete(self.update_tab), 1000)
-    
-    @safe
-    async def update_tab(self, connection):
-        app = await iterm2.async_get_app(connection)
-        tab = app.current_terminal_window.current_tab
+        tmux = await get_tmux(connection, self.project)
+        
+        tab = await window.async_create_tmux_tab(tmux)
         TAB_IDS[self.file] = tab.tab_id
         await tab.async_set_title(self.vars['file_name'])
         await tab.current_session.async_set_variable('user.file', self.file)
-
+        await tab.current_session.async_send_text(f"cd \'{self.file_path}\' && {self.cmd}\n")
+        # code = b'\x1b' + b']1337;ClearScrollback' + b'\x07'
+        # await tab.current_session.async_inject(code)
 
 class TermSendText(_TermCommand):
     def initialize(self, text, **kwargs):
