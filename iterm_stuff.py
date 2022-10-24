@@ -67,6 +67,7 @@ class TermToggleAutoFocus(WindowCommand):
     def run(self, **kwargs):
         global AUTO_FOCUS_TAB
         AUTO_FOCUS_TAB = not AUTO_FOCUS_TAB
+        print('AUTO_FOCUS_TAB =', AUTO_FOCUS_TAB)
         if AUTO_FOCUS_TAB:
             self.window.run_command('term_focus')
 
@@ -105,7 +106,7 @@ class StartRepl(_TermCommand):
         self.file = self.vars['file']
         file, extension = self.vars['file_name'], self.vars['file_extension']
         self.cmd = {
-            'jl': '~/bin/jl',
+            'jl': 'jl',
             'r': 'radian',
             'rmd': 'radian',
             'py': 'ipython'
@@ -132,8 +133,9 @@ class StartRepl(_TermCommand):
         if window_project != self.project:
             raise Exception("BAD PROJECT WINDOW")
 
-        tmux = await get_tmux(connection, self.project)
-        await tmux.async_send_command(f'new-window "cd \'{self.file_path}\' && {self.cmd}; exec zsh"')
+        tmux = await get_tmux(connection, self.project)        
+        await tmux.async_send_command(f'new-window "zsh -ic \"{self.cmd}\""')
+        # await tmux.async_send_command(f'new-window "cd \'{self.file_path}\' && {self.cmd}; exec zsh"')
         # we have to use a callback because async_create_tmux_tab doesn't work in sublime
         # and async_send_command doesn't wait for the tab to be initialized
         set_timeout(lambda: iterm2.run_until_complete(self.update_tab), 1000)
