@@ -51,15 +51,15 @@ class TermListener(EventListener):
         if AUTO_FOCUS_WINDOW:
             view.window().run_command('term_focus')
 
-    def on_pre_close_window(self, window, **kwargs):
-        logging.debug('on_pre_close_window')
+    # def on_pre_close_window(self, window, **kwargs):
+        # logging.info('on_pre_close_window')
         
     def on_load_project(self, window, **kwargs):
-        logging.debug('load and start')
+        logging.info('load and start')
         window.run_command('start_term')
 
     def on_pre_close_project(self, window, **kwargs):
-        logging.debug('on_pre_close_project')
+        logging.info('on_pre_close_project')
         window.run_command('close_term')
 
 
@@ -67,7 +67,7 @@ class TermToggleAutoFocus(WindowCommand):
     def run(self, **kwargs):
         global AUTO_FOCUS_TAB
         AUTO_FOCUS_TAB = not AUTO_FOCUS_TAB
-        print('AUTO_FOCUS_TAB =', AUTO_FOCUS_TAB)
+        logging.info(f'AUTO_FOCUS_TAB = {AUTO_FOCUS_TAB}')
         if AUTO_FOCUS_TAB:
             self.window.run_command('term_focus')
 
@@ -75,9 +75,10 @@ class TermToggleAutoFocus(WindowCommand):
 class TermFocus(_TermCommand):
     @safe
     async def coro(self, connection):
+        logging.info('TermFocus')
         app = await iterm2.async_get_app(connection)
         file_name = self.vars.get('file_name', None) if AUTO_FOCUS_TAB else None
-        await focus(connection, self.project, self.vars['file_name'])
+        await focus(connection, self.project, file_name)
     
 
 class StartTerm(_TermCommand):
@@ -86,17 +87,24 @@ class StartTerm(_TermCommand):
 
     @safe
     async def coro(self, connection):
-        await create_window(connection, self.project)
+        logging.info('StartTerm')
+        window = await create_window(connection, self.project)
+        await window.current_tab.current_session.async_send_text(f"cd \"{self.vars['folder']}\"")
+        
 
 
 class CloseTerm(_TermCommand):
     @safe
     async def coro(self, connection):
+        logging.info('CloseTerm: start')
         app = await iterm2.async_get_app(connection)
+        logging.info('CloseTerm: have app')
 
         for session in app.buried_sessions:
             if project_name(session) == self.project:
+                logging.info('CloseTerm: found session')
                 await session.async_close()
+                logging.info('CloseTerm: ssesion closed')
                 return
 
 
@@ -115,6 +123,7 @@ class StartRepl(_TermCommand):
 
     @safe
     async def coro(self, connection):
+        logging.info('StartRepl')
         app = await iterm2.async_get_app(connection)
         window = await get_window(app, self.project)
         if window is None:
