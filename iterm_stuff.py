@@ -1,9 +1,10 @@
 from sublime_plugin import EventListener, WindowCommand, TextCommand
 from sublime import Region, set_timeout, set_timeout_async
 
+import re
 from functools import wraps
 import traceback
-
+import asyncio
 import iterm2
 
 WINDOW_IDS = {}
@@ -31,10 +32,13 @@ def safe(func):
             
     return wrapped
 
+# %% ==================== commands ====================
+
 class _TermCommand(WindowCommand):
     def run(self, **kwargs):
         self.vars = self.window.extract_variables()
         self.project = self.vars.get('project_base_name', 'default')
+        self.folder = self.vars.get('folder', '~')
         self.initialize(**kwargs)
         set_timeout_async(lambda: iterm2.run_until_complete(self.coro))
 
@@ -45,62 +49,13 @@ class _TermCommand(WindowCommand):
     async def coro(self, connection):
         ...
 
-
-class TermListener(EventListener):
-    def on_activated(self, view, **kwargs):
-        if AUTO_FOCUS_WINDOW:
-            view.window().run_command('term_focus')
-
-    # def on_pre_close_window(self, window, **kwargs):
-        # logging.info('on_pre_close_window')
-        
-    def on_load_project(self, window, **kwargs):
-        logging.info('load and start')
-        window.run_command('start_term')
-
-    def on_pre_close_project(self, window, **kwargs):
-        logging.info('on_pre_close_project')
-        # window.run_command('close_term')
-
-
-class TermToggleAutoFocus(WindowCommand):
-    def run(self, **kwargs):
-        global AUTO_FOCUS_TAB
-        AUTO_FOCUS_TAB = not AUTO_FOCUS_TAB
-        logging.info(f'AUTO_FOCUS_TAB = {AUTO_FOCUS_TAB}')
-        if AUTO_FOCUS_TAB:
-            self.window.run_command('term_focus')
-
-
 class TermFocus(_TermCommand):
     @safe
     async def coro(self, connection):
-        logging.info('TermFocus')
+        logging.debug('TermFocus')
         app = await iterm2.async_get_app(connection)
         file_name = self.vars.get('file_name', None) if AUTO_FOCUS_TAB else None
         await focus(connection, self.project, file_name)
-
-
-class TestTerm(WindowCommand):
-    def run(self, **kwargs):
-        self.vars = self.window.extract_variables()
-        self.project = self.vars.get('project_base_name', 'default')
-        self.initialize(**kwargs)
-        set_timeout_async(lambda: iterm2.run_until_complete(self.coro))
-
-    def initialize(self, **kwargs):
-        pass
-
-    @safe
-    async def coro(self, connection):
-        logging.info('TestTerm')
-        app = await iterm2.async_get_app(connection)
-        window = await get_window(app, self.project)
-        if window is None:
-            return
-        session = window.current_tab.current_session
-        await session.async_send_text('echo foo\r')
-        await window.async_activate()
 
 
 class StartTerm(_TermCommand):
@@ -110,9 +65,12 @@ class StartTerm(_TermCommand):
     @safe
     async def coro(self, connection):
         logging.info('StartTerm')
-        window = await create_window(connection, self.project)
-        await window.current_tab.current_session.async_send_text(f"cd \"{self.vars['folder']}\"")
-        
+        app = await iterm2.async_get_app(connection)
+        window = await get_window(app, self.project)
+        if window is None:
+            window = await create_window(connection, self.project, self.folder)
+        await window.async_activate()
+        # await window.current_tab.current_session.async_send_text(f"cd \"{self.vars['folder']}\"")
 
 
 class CloseTerm(_TermCommand):
@@ -197,19 +155,51 @@ class LazyGit(_TermCommand):
                     lg_tab = tab
                     break
         if lg_tab is None:
-            cmd = f"zsh -dfic 'cd \"{self.vars['folder']}\" && /Users/fredcallaway/bin/lazygit'"
+            cmd = f"zsh -dfic 'cd \"{self.folder}\" && /Users/fredcallaway/bin/lazygit'"
             tab = await window.async_create_tab(command=cmd)
             await tab.current_session.async_set_variable("user.lazygit", True)
 
         await tab.async_activate()
         await app.async_activate()
 
+# %% ==================== listener ====================
 
-async def create_window(connection, project, ssh=None):
+class TermListener(EventListener):
+    def on_activated(self, view, **kwargs):
+        if AUTO_FOCUS_WINDOW:
+            view.window().run_command('term_focus')
+
+    # def on_pre_close_window(self, window, **kwargs):
+        # logging.info('on_pre_close_window')
+        
+    def on_load_project(self, window, **kwargs):
+        logging.info('load and start')
+        window.run_command('start_term')
+
+    def on_pre_close_project(self, window, **kwargs):
+        logging.info('on_pre_close_project')
+        window.run_command('close_term')
+
+
+class TermToggleAutoFocus(WindowCommand):
+    def run(self, **kwargs):
+        global AUTO_FOCUS_TAB
+        AUTO_FOCUS_TAB = not AUTO_FOCUS_TAB
+        logging.info(f'AUTO_FOCUS_TAB = {AUTO_FOCUS_TAB}')
+        if AUTO_FOCUS_TAB:
+            self.window.run_command('term_focus')
+
+
+# %% ==================== helpers ====================
+
+async def create_window(connection, project, folder='~', ssh=None):
     tmux = '~/homebrew/bin/tmux'
     if ssh in ('g1', 'g2', 'scotty'):
         tmux = '~/bin/tmux'
-    cmd = f'{tmux} -CC new-session -A -s {project}'
+    cmd = rf'''
+        {tmux} -CC new-session -A -s {project} 'zsh -is eval "cd \"{folder}\" "
+    '''.strip()
+    logging.info(f'create_window: {cmd}')
     if ssh:
         cmd = f"ssh -t {ssh} '{cmd}'"
 
@@ -241,13 +231,16 @@ async def get_tab(app, file_name):
                 TAB_IDS[file_name] = tab.tab_id
                 return tab
 
+
 def project_name(session):
-    return session.name.split(' ')[-1][:-1]
+    return re.search(r'new-session -A -s (\S+)', session.name).group(1)
 
 async def get_tmux(connection, project):
     # get tmux connection
     tmux_conns = await iterm2.async_get_tmux_connections(connection)
     for tmux_conn in tmux_conns:
+        logging.info(f'owning_session = {tmux_conn.owning_session}')
+        logging.info(f'project_name = {project_name(tmux_conn.owning_session)}')
         if project_name(tmux_conn.owning_session) == project:
             return tmux_conn
     
