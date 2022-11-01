@@ -196,8 +196,9 @@ async def create_window(connection, project, folder='~', ssh=None):
     tmux = '~/homebrew/bin/tmux'
     if ssh in ('g1', 'g2', 'scotty'):
         tmux = '~/bin/tmux'
+    # {tmux} -CC new-session -A -s {project} 'zsh -is eval "cd \"{folder}\" "
     cmd = rf'''
-        {tmux} -CC new-session -A -s {project} 'zsh -is eval "cd \"{folder}\" "
+        {tmux} -CC new-session -A -s {project}
     '''.strip()
     logging.info(f'create_window: {cmd}')
     if ssh:
@@ -205,6 +206,8 @@ async def create_window(connection, project, folder='~', ssh=None):
 
     app = await iterm2.async_get_app(connection)
     window = await iterm2.Window.async_create(connection, command=cmd)
+    # await window.current_tab.async_set_title(project)
+    # await window.async_set_title(project)
     await window.async_set_variable('user.project', project)
     WINDOW_IDS[project] = window.window_id
     return window
@@ -233,13 +236,13 @@ async def get_tab(app, file_name):
 
 
 def project_name(session):
-    return re.search(r'new-session -A -s (\S+)', session.name).group(1)
+    print('session_name is ', session.name)
+    return re.search(r'new-session -A -s ([\w_-]+)', session.name).group(1)
 
 async def get_tmux(connection, project):
     # get tmux connection
     tmux_conns = await iterm2.async_get_tmux_connections(connection)
     for tmux_conn in tmux_conns:
-        logging.info(f'owning_session = {tmux_conn.owning_session}')
         logging.info(f'project_name = {project_name(tmux_conn.owning_session)}')
         if project_name(tmux_conn.owning_session) == project:
             return tmux_conn
