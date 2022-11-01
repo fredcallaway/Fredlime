@@ -1,5 +1,5 @@
 from sublime_plugin import EventListener, WindowCommand, TextCommand
-from sublime import Region, set_timeout
+from sublime import Region, set_timeout, set_timeout_async
 
 from functools import wraps
 import traceback
@@ -36,7 +36,7 @@ class _TermCommand(WindowCommand):
         self.vars = self.window.extract_variables()
         self.project = self.vars.get('project_base_name', 'default')
         self.initialize(**kwargs)
-        iterm2.run_until_complete(self.coro)
+        set_timeout_async(lambda: iterm2.run_until_complete(self.coro))
 
     def initialize(self, **kwargs):
         pass
@@ -60,7 +60,7 @@ class TermListener(EventListener):
 
     def on_pre_close_project(self, window, **kwargs):
         logging.info('on_pre_close_project')
-        window.run_command('close_term')
+        # window.run_command('close_term')
 
 
 class TermToggleAutoFocus(WindowCommand):
@@ -79,7 +79,29 @@ class TermFocus(_TermCommand):
         app = await iterm2.async_get_app(connection)
         file_name = self.vars.get('file_name', None) if AUTO_FOCUS_TAB else None
         await focus(connection, self.project, file_name)
-    
+
+
+class TestTerm(WindowCommand):
+    def run(self, **kwargs):
+        self.vars = self.window.extract_variables()
+        self.project = self.vars.get('project_base_name', 'default')
+        self.initialize(**kwargs)
+        set_timeout_async(lambda: iterm2.run_until_complete(self.coro))
+
+    def initialize(self, **kwargs):
+        pass
+
+    @safe
+    async def coro(self, connection):
+        logging.info('TestTerm')
+        app = await iterm2.async_get_app(connection)
+        window = await get_window(app, self.project)
+        if window is None:
+            return
+        session = window.current_tab.current_session
+        await session.async_send_text('echo foo\r')
+        await window.async_activate()
+
 
 class StartTerm(_TermCommand):
     def initialize(self, ssh=None, **kwargs):
