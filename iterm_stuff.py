@@ -40,7 +40,7 @@ class _TermCommand(WindowCommand):
         self.project = self.vars.get('project_base_name', 'default')
         self.folder = self.vars.get('folder', '~')
         self.initialize(**kwargs)
-        set_timeout_async(lambda: iterm2.run_until_complete(self.coro))
+        set_timeout_async(lambda: iterm2.run_until_complete(self.coro, retry=True))
 
     def initialize(self, **kwargs):
         pass
@@ -52,6 +52,8 @@ class _TermCommand(WindowCommand):
 class TermFocus(_TermCommand):
     @safe
     async def coro(self, connection):
+        if not AUTO_FOCUS_WINDOW:
+            return
         logging.debug('TermFocus')
         app = await iterm2.async_get_app(connection)
         file_name = self.vars.get('file_name', None) if AUTO_FOCUS_TAB else None
@@ -70,6 +72,7 @@ class StartTerm(_TermCommand):
         if window is None:
             window = await create_window(connection, self.project, self.folder)
         await window.async_activate()
+        await app.async_activate()
         # await window.current_tab.current_session.async_send_text(f"cd \"{self.vars['folder']}\"")
 
 
@@ -182,12 +185,19 @@ class TermListener(EventListener):
 
 
 class TermToggleAutoFocus(WindowCommand):
-    def run(self, **kwargs):
-        global AUTO_FOCUS_TAB
-        AUTO_FOCUS_TAB = not AUTO_FOCUS_TAB
-        logging.info(f'AUTO_FOCUS_TAB = {AUTO_FOCUS_TAB}')
-        if AUTO_FOCUS_TAB:
-            self.window.run_command('term_focus')
+    def run(self, which='tab', **kwargs):
+        if which == 'window':
+            global AUTO_FOCUS_WINDOW
+            AUTO_FOCUS_WINDOW = not AUTO_FOCUS_WINDOW
+            logging.info(f'AUTO_FOCUS_WINDOW = {AUTO_FOCUS_WINDOW}')
+            if AUTO_FOCUS_WINDOW:
+                self.window.run_command('term_focus')
+        else:
+            global AUTO_FOCUS_TAB
+            AUTO_FOCUS_TAB = not AUTO_FOCUS_TAB
+            logging.info(f'AUTO_FOCUS_TAB = {AUTO_FOCUS_TAB}')
+            if AUTO_FOCUS_TAB:
+                self.window.run_command('term_focus')
 
 
 # %% ==================== helpers ====================
