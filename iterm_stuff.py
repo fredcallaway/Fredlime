@@ -1,6 +1,7 @@
 from sublime_plugin import EventListener, WindowCommand, TextCommand
 from sublime import Region, set_timeout, set_timeout_async
 
+import os
 import re
 from functools import wraps
 import traceback
@@ -158,7 +159,7 @@ class LazyGit(_TermCommand):
                     lg_tab = tab
                     break
         if lg_tab is None:
-            cmd = f"zsh -dfic 'cd \"{self.folder}\" && /Users/fredcallaway/bin/lazygit'"
+            cmd = f"zsh -ic 'cd \"{self.folder}\" && lazygit'"
             tab = await window.async_create_tab(command=cmd)
             await tab.current_session.async_set_variable("user.lazygit", True)
 
@@ -175,9 +176,9 @@ class TermListener(EventListener):
     # def on_pre_close_window(self, window, **kwargs):
         # logging.info('on_pre_close_window')
         
-    def on_load_project(self, window, **kwargs):
-        logging.info('load and start')
-        window.run_command('start_term')
+    # def on_load_project(self, window, **kwargs):
+        # logging.info('load and start')
+        # window.run_command('start_term')
 
     def on_pre_close_project(self, window, **kwargs):
         logging.info('on_pre_close_project')
@@ -206,10 +207,11 @@ async def create_window(connection, project, folder='~', ssh=None):
     tmux = '~/homebrew/bin/tmux'
     if ssh in ('g1', 'g2', 'scotty'):
         tmux = '~/bin/tmux'
-    # {tmux} -CC new-session -A -s {project} 'zsh -is eval "cd \"{folder}\" "
+    folder = os.path.expanduser(folder).replace(' ','\\ ')
     cmd = rf'''
-        {tmux} -CC new-session -A -s {project}
+        {tmux} -CC new-session -A -s {project} 'cd {folder}; zsh -i'
     '''.strip()
+        # {tmux} -CC new-session -A -s {project}
     logging.info(f'create_window: {cmd}')
     if ssh:
         cmd = f"ssh -t {ssh} '{cmd}'"
@@ -247,7 +249,9 @@ async def get_tab(app, file_name):
 
 def project_name(session):
     print('session_name is ', session.name)
-    return re.search(r'new-session -A -s ([\w_-]+)', session.name).group(1)
+    match = re.search(r'new-session -A -s ([\w_-]+)', session.name)
+    if match:
+        return match.group(1)
 
 async def get_tmux(connection, project):
     # get tmux connection
