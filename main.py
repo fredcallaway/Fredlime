@@ -5,13 +5,6 @@ import sublime
 import subprocess
 import os
 
-def here(path):
-    return os.path.join(os.path.dirname(__file__), path)
-
-ITERM = here("iterm.applescript")
-
-def osascript(*args):
-    subprocess.check_call(["osascript"] + list(args))
 
 def find(view, sel, pattern, backward=False):
     if backward:
@@ -100,5 +93,3 @@ class FoldCell(TextCommand):
         view.run_command("reverse_select")
         view.run_command("move", {"by": "lines", "forward": True, "extend":True})
         view.run_command("fold")
-
-
