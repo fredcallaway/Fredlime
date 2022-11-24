@@ -146,24 +146,24 @@ class LazyGit(_TermCommand):
 
     @safe
     async def coro(self, connection):
+        cmd = f"zsh -ic 'cd \"{self.folder}\" && lazygit'"
         app = await iterm2.async_get_app(connection)
         window = await get_window(app, self.project)
         if window is None:
-            return
+            await iterm2.Window.async_create(connection, command=cmd)
+        else:
+            # check if already exists and activate
+            lg_tab = None
+            for tab in window.tabs:
+                for session in tab.sessions:
+                    if (await session.async_get_variable("user.lazygit")):
+                        lg_tab = tab
+                        break
+            if lg_tab is None:
+                tab = await window.async_create_tab(command=cmd)
+                await tab.current_session.async_set_variable("user.lazygit", True)
+                await tab.async_activate()
 
-        # check if already exists and activate
-        lg_tab = None
-        for tab in window.tabs:
-            for session in tab.sessions:
-                if (await session.async_get_variable("user.lazygit")):
-                    lg_tab = tab
-                    break
-        if lg_tab is None:
-            cmd = f"zsh -ic 'cd \"{self.folder}\" && lazygit'"
-            tab = await window.async_create_tab(command=cmd)
-            await tab.current_session.async_set_variable("user.lazygit", True)
-
-        await tab.async_activate()
         await app.async_activate()
 
 # %% ==================== listener ====================
