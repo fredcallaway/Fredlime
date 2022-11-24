@@ -9,7 +9,6 @@ import asyncio
 import iterm2
 
 WINDOW_IDS = {}
-TAB_IDS = {}
 AUTO_FOCUS_TAB = False
 AUTO_FOCUS_WINDOW = True
 
@@ -120,7 +119,6 @@ class StartRepl(_TermCommand):
         tmux = await get_tmux(connection, self.project)
         
         tab = await window.async_create_tmux_tab(tmux)
-        TAB_IDS[self.file] = tab.tab_id
         await tab.async_set_title(self.vars['file_name'])
         await tab.current_session.async_set_variable('user.file', self.file)
         await tab.current_session.async_send_text(f"cd \'{self.file_path}\' && {self.cmd}\n")
@@ -236,15 +234,13 @@ async def get_window(app, project):
 
 
 async def get_tab(app, file_name):
-    try:
-        return app.get_tab_by_id(TAB_IDS[file_name])
-    except KeyError:
-        for tab in app.current_window.tabs:
-            # could try getting a more specific variable here
-            title = await tab.async_get_variable('title')
-            if title[2:] == file_name:
-                TAB_IDS[file_name] = tab.tab_id
-                return tab
+    print('get_tab')
+    for tab in app.current_window.tabs:
+        # could try getting a more specific variable here
+        title = await tab.async_get_variable('title')
+        print('title is', title)
+        if title[2:] == file_name:
+            return tab
 
 
 def project_name(session):
