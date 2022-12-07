@@ -22,7 +22,6 @@ class BackgroundOpenNew(FileSystemEventHandler):
     def on_created(self, event):
         if self.last != event.src_path:
             self.last = event.src_path
-            print(event.src_path)
             os.system(f'sleep {self.delay}; open -g "{event.src_path}"')
 
 class Watcher(object):
@@ -42,8 +41,6 @@ class Watcher(object):
 
 class WatchFigs(WindowCommand):
     def run(self, action='start', **kwargs):
-        print('WatchFigs, action =', action)
-        print(WATCHERS)
         folder = self.window.extract_variables().get('folder')
         if folder is None:
             return
@@ -71,7 +68,6 @@ def stop_watch(folder):
 class FigsListener(EventListener):
     def on_activated(self, view, **kwargs):
         folder = view.window().extract_variables().get('folder')
-        print("activated", folder, WATCHERS.keys())
         if folder in WATCHERS:
             path = f"{folder}/.fighist"
             os.system(f'open -ga "Xee³" "{path}"')
