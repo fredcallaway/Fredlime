@@ -5,13 +5,13 @@ import sublime
 import subprocess
 import os
 
-
-def find(view, sel, pattern, backward=False):
+def find(view, sel, pattern, backward=False, include_current=False):
+    offset = 1 if include_current else 0
     if backward:
         regions = view.find_all(pattern)
         start = 0
         for i in range(len(regions)):
-            if regions[i].end() >= sel.begin():
+            if regions[i].end() >= sel.begin() + offset:
                 if i == 0:
                     return Region(0, 0)
                 else:
@@ -22,17 +22,17 @@ def find(view, sel, pattern, backward=False):
 
 
 def find_surround(view, sel, pattern):
-    regions = view.find_all(pattern)
-    start = 0
-    for i in range(len(regions)):
-        end = regions[i].begin()
-        if start <= sel.begin() and end >= sel.end():
-            break
-        start = regions[i].begin()
-    else:  # no pattern occurrence after sel, go to end of file
+    if not isinstance(pattern, tuple):
+        pattern = (pattern, pattern)
+
+    start_pat, end_pat = pattern
+
+    start = find(view, sel, start_pat, backward=True, include_current=True).begin()
+    end = find(view, sel, end_pat, backward=False).begin()
+    if end == -1:
         end = view.size()
-    # if start > 0:
-    #     start = view.find('\n+', start).end()        
+
+    print('find_surround', sel, start, end)
     return sublime.Region(start, end)
 
 
@@ -40,7 +40,7 @@ class JumpCell(TextCommand):
     def run(self, edit, backward=False):
         view = self.view
         sels = view.sel()
-        
+
         pattern = {
             'R Markdown': r'^```{r.*}\n',
             'LaTeX': r'^\\(\w*section|paragraph).*\n',
@@ -48,19 +48,18 @@ class JumpCell(TextCommand):
             'JavaScript': 'indent'
         }.get(view.syntax().name, r'^# %%.*\n')
 
-        if pattern == 'indent':            
+        if pattern == 'indent':
             line = view.line(view.sel()[0].begin())
             this_indent = len(view.substr(line)) - len(view.substr(line).lstrip(' '))
             print(this_indent)
-            pattern = '\n' + this_indent * ' ' + r'(?=[^\s])'        
+            pattern = '\n' + this_indent * ' ' + r'(?=[^\s])'
         region = find(view, sels[0], pattern, backward)
         if region.a == -1:
             return
-        
+
         sels.clear()
         sels.add(region.b)
         view.show(region)
-
 
 class SelectCell(TextCommand):
     def run(self, edit):
@@ -69,7 +68,7 @@ class SelectCell(TextCommand):
         sels = view.sel()
 
         pattern = {
-            'R Markdown': r'^```{r.*}\n',
+            'R Markdown': (r'^```{r.*}\n', r'(?<=^```)\n'),
             'LaTeX': r'^\\(\w*section|paragraph).*\n',
         }.get(view.syntax().name, r'^# %%.*\n')
         s = find_surround(view, sels[0], pattern)
@@ -83,6 +82,7 @@ class SelectCell(TextCommand):
         new = sublime.Region(start, s.end())
         sels.add(new)
         view.show(new)
+
 
 
 class FoldCell(TextCommand):
