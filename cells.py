@@ -61,6 +61,7 @@ class JumpCell(TextCommand):
         sels.add(region.b)
         view.show(region)
 
+
 class SelectCell(TextCommand):
     def run(self, edit):
         print("running select_cell")
@@ -82,7 +83,6 @@ class SelectCell(TextCommand):
         new = sublime.Region(start, s.end())
         sels.add(new)
         view.show(new)
-
 
 
 class FoldCell(TextCommand):
