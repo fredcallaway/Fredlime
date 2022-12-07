@@ -9,7 +9,7 @@ import asyncio
 import iterm2
 
 WINDOW_IDS = {}
-AUTO_FOCUS_TAB = False
+AUTO_FOCUS_TAB = True
 AUTO_FOCUS_WINDOW = True
 
 import logging
@@ -207,7 +207,7 @@ async def create_window(connection, project, folder='~', ssh=None):
         tmux = '~/bin/tmux'
     folder = os.path.expanduser(folder).replace(' ','\\ ')
     cmd = rf'''
-        {tmux} -CC new-session -A -s {project} 'cd {folder}; zsh -i'
+        {tmux} -CC new-session -A -s {project} 'cd {folder}; zsh --login'
     '''.strip()
         # {tmux} -CC new-session -A -s {project}
     logging.info(f'create_window: {cmd}')
@@ -234,11 +234,9 @@ async def get_window(app, project):
 
 
 async def get_tab(app, file_name):
-    print('get_tab')
     for tab in app.current_window.tabs:
         # could try getting a more specific variable here
         title = await tab.async_get_variable('title')
-        print('title is', title)
         if title[2:] == file_name:
             return tab
 
