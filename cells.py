@@ -24,6 +24,9 @@ def find(view, sel, pattern, backward=False, include_current=False):
 def find_surround(view, sel, pattern):
     if not isinstance(pattern, tuple):
         pattern = (pattern, pattern)
+        end_offset = -1
+    else:
+        end_offset = 0
 
     start_pat, end_pat = pattern
 
@@ -32,8 +35,7 @@ def find_surround(view, sel, pattern):
     if end == -1:
         end = view.size()
 
-    print('find_surround', sel, start, end)
-    return sublime.Region(start, end)
+    return sublime.Region(start, end + end_offset)
 
 
 class JumpCell(TextCommand):
@@ -70,16 +72,9 @@ class SelectCell(TextCommand):
         pattern = {
             'R Markdown': (r'^```{r.*}\n', r'(?<=^```)\n'),
             'LaTeX': r'^\\(\w*section|paragraph).*\n',
-        }.get(view.syntax().name, r'^# %%.*\n')
-        s = find_surround(view, sels[0], pattern)
-
-        print(s)
-        # start = self.view.find('\n', s.begin()).begin()+1
-        start = s.begin()
-        # print('line', self.view.substr(self.view.line(start)))
-        # print('||', self.view.substr(sublime.Region(start, s.end()-1)), '||', sep='')
+        }.get(view.syntax().name, r'# %%.*\n')
+        new = find_surround(view, sels[0], pattern)
         sels.clear()
-        new = sublime.Region(start, s.end())
         sels.add(new)
         view.show(new)
 
