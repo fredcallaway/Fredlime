@@ -169,7 +169,12 @@ class LazyGit(_TermCommand):
 class TermListener(EventListener):
     def on_activated(self, view, **kwargs):
         if AUTO_FOCUS_WINDOW:
-            view.window().run_command('term_focus')
+            if view.syntax().name == 'MultiMarkdown':
+                file = view.window().extract_variables().get('file')
+                os.system(f'open -ga "Marked 2" "{file}"')
+            else:
+                view.window().run_command('term_focus')
+#
 
     # def on_pre_close_window(self, window, **kwargs):
         # logging.info('on_pre_close_window')
@@ -215,7 +220,7 @@ async def create_window(connection, project, folder='~', ssh=None):
         cmd = f"ssh -t {ssh} '{cmd}'"
 
     app = await iterm2.async_get_app(connection)
-    window = await iterm2.Window.async_create(connection, command=cmd)
+    window = await iterm2.Window.async_create(connection, command=cmd, profile='tmuxconn')
     # await window.current_tab.async_set_title(project)
     # await window.async_set_title(project)
     await window.async_set_variable('user.project', project)
