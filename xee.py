@@ -66,9 +66,9 @@ def stop_watch(folder):
 
 
 class FigsListener(EventListener):
-    def on_activated(self, view, **kwargs):
+    def on_activated_async(self, view, **kwargs):
         folder = view.window().extract_variables().get('folder')
-        if folder in WATCHERS:
+        if folder in WATCHERS and view.syntax().name != 'MultiMarkdown':
             path = f"{folder}/.fighist"
             os.system(f'open -ga "Xee³" "{path}"')
 
