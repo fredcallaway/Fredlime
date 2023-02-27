@@ -167,7 +167,7 @@ class LazyGit(_TermCommand):
 # %% ==================== listener ====================
 
 class TermListener(EventListener):
-    def on_activated(self, view, **kwargs):
+    def on_activated_async(self, view, **kwargs):
         if AUTO_FOCUS_WINDOW:
             if view.syntax().name == 'MultiMarkdown':
                 file = view.window().extract_variables().get('file')
