@@ -110,6 +110,7 @@ class StartRepl(_TermCommand):
         app = await iterm2.async_get_app(connection)
         window = await get_window(app, self.project)
         if window is None:
+            print("No Terminal Found")
             return
 
         window_project = await window.async_get_variable('user.project')
@@ -170,8 +171,9 @@ class TermListener(EventListener):
     def on_activated_async(self, view, **kwargs):
         if AUTO_FOCUS_WINDOW:
             if view.syntax().name == 'MultiMarkdown':
-                file = view.window().extract_variables().get('file')
-                os.system(f'open -ga "Marked 2" "{file}"')
+                pass
+                # file = view.window().extract_variables().get('file')
+                # os.system(f'open -ga "Marked 2" "{file}"')
             else:
                 view.window().run_command('term_focus')
 #
@@ -207,7 +209,7 @@ class TermToggleAutoFocus(WindowCommand):
 # %% ==================== helpers ====================
 
 async def create_window(connection, project, folder='~', ssh=None):
-    tmux = '~/homebrew/bin/tmux'
+    tmux = '/usr/local/bin/tmux'
     if ssh in ('g1', 'g2', 'scotty'):
         tmux = '~/bin/tmux'
     folder = os.path.expanduser(folder).replace(' ','\\ ')
@@ -229,10 +231,15 @@ async def create_window(connection, project, folder='~', ssh=None):
 
 async def get_window(app, project):
     try:
-        return app.get_window_by_id(WINDOW_IDS[project])
+        window = app.get_window_by_id(WINDOW_IDS[project])
+        print('using cached window')
+        assert window != None
+        return window
     except KeyError:
+        print('looking for window')
         for window in app.windows:
             this_project = await window.async_get_variable('user.project')
+            print('  ', this_project)
             if this_project == project:
                 WINDOW_IDS[project] = window.window_id
                 return window
