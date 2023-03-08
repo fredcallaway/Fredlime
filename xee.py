@@ -41,9 +41,13 @@ class Watcher(object):
 
 class WatchFigs(WindowCommand):
     def run(self, action='start', **kwargs):
-        folder = self.window.extract_variables().get('folder')
+        print("running watchfigs")
+        vars = self.window.extract_variables()
+        folder = vars.get('folder')
         if folder is None:
-            return
+            folder = vars.get('file_path')
+            if folder is None:
+                return
 
         if action == 'start':
             set_timeout_async(lambda: start_watch(folder))
@@ -52,6 +56,7 @@ class WatchFigs(WindowCommand):
             set_timeout_async(lambda: stop_watch(folder))
 
 def start_watch(folder):
+    print("start watch")
     path = f"{folder}/.fighist"
     os.system(f'open -ga "Xee³" "{path}"')
     if folder not in WATCHERS:

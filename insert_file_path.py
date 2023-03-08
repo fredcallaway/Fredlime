@@ -17,7 +17,6 @@ class InsertFilePath(sublime_plugin.TextCommand):
         pass
 
     def on_select(self, i):
-        print(i)
         self.view.run_command("insert", {"characters": self.files[i]})
 
     def on_done(self, text):
