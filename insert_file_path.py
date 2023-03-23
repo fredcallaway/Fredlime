@@ -14,10 +14,15 @@ class InsertFilePath(sublime_plugin.TextCommand):
         files = subprocess.check_output([*fd, ".", folder]).decode().strip().split('\n')
         self.files = [f.replace(folder + '/', '') for f in files]
         self.window.show_quick_panel(self.files, self.on_select)
-        pass
+
+        selected_text = self.view.substr(self.view.sel()[0])
+        print('selected_text', selected_text)
+        self.window.run_command("append", { "characters": selected_text})
+        self.window.run_command("move_to", {"to": "eol"})
 
     def on_select(self, i):
         self.view.run_command("insert", {"characters": self.files[i]})
+
 
     def on_done(self, text):
         print('Done!', text)
