@@ -37,7 +37,7 @@ def safe(func):
 class _TermCommand(WindowCommand):
     def run(self, **kwargs):
         self.vars = self.window.extract_variables()
-        self.project = self.vars.get('project_base_name', 'default')
+        self.project = self.vars.get('project_base_name', 'main')
         self.folder = self.vars.get('folder', '~')
         self.initialize(**kwargs)
         set_timeout_async(lambda: iterm2.run_until_complete(self.coro, retry=True))
@@ -238,7 +238,9 @@ async def get_window(app, project):
     except KeyError:
         print('looking for window')
         for window in app.windows:
-            this_project = await window.async_get_variable('user.project')
+            status = await window.current_tab.current_session.async_get_variable('tmuxStatusLeft')
+            this_project = status[2:-3] if status else None  # e.g.  "[ main ]"
+            # this_project = await window.async_get_variable('user.project')
             print('  ', this_project)
             if this_project == project:
                 WINDOW_IDS[project] = window.window_id
