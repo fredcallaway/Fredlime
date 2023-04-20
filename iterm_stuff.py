@@ -54,6 +54,7 @@ class _TermCommand(WindowCommand):
 class TermFocus(_TermCommand):
     def run(self, **kwargs):
         if AUTO_FOCUS_WINDOW:
+            print('TermFocus')
             self.send_message(focus_tab=AUTO_FOCUS_TAB)
 
 class StartTerm(_TermCommand):
@@ -76,12 +77,12 @@ class LazyGit(_TermCommand):
 class TermListener(EventListener):
     def on_activated_async(self, view, **kwargs):
         if AUTO_FOCUS_WINDOW:
-            if view.syntax().name == 'MultiMarkdown':
-                pass
+            view.window().run_command('term_focus')
+            # if view.syntax().name == 'MultiMarkdown':
+                # pass
                 # file = view.window().extract_variables().get('file')
                 # os.system(f'open -ga "Marked 2" "{file}"')
-            else:
-                view.window().run_command('term_focus')
+            # else:
 
     # def on_pre_close_window(self, window, **kwargs):
         # logging.info('on_pre_close_window')

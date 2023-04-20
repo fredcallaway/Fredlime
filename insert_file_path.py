@@ -7,8 +7,10 @@ class InsertFilePath(sublime_plugin.TextCommand):
     def run(self, edit):
         # self.window.show_input_panel("Goto Line:", "", self.on_done, None, None)
         self.window = self.view.window()
-        folder = self.window.extract_variables().get('folder')
+        v = self.window.extract_variables()
+        folder = v.get('folder', v.get('file_path'))
         if folder is None:
+            print("No folder!")
             return
         fd = 'fd --exclude .git --exclude .cache --no-ignore-vcs'.split(' ')
         files = subprocess.check_output([*fd, ".", folder]).decode().strip().split('\n')
