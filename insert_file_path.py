@@ -12,7 +12,8 @@ class InsertFilePath(sublime_plugin.TextCommand):
         if folder is None:
             print("No folder!")
             return
-        fd = 'fd --exclude .git --exclude .cache --no-ignore-vcs'.split(' ')
+
+        fd = 'fd --exclude .git --exclude .cache --no-ignore-vcs --follow'.split(' ')
         files = subprocess.check_output([*fd, ".", folder]).decode().strip().split('\n')
         self.files = [f.replace(folder + '/', '') for f in files]
         self.window.show_quick_panel(self.files, self.on_select)

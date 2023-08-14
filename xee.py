@@ -71,20 +71,14 @@ def stop_watch(folder):
 
 
 class FigsListener(EventListener):
-    def on_activated_async(self, view, **kwargs):
-        folder = view.window().extract_variables().get('folder')
-        if folder in WATCHERS and view.syntax().name != 'MultiMarkdown':
-            path = f"{folder}/.fighist"
-            os.system(f'open -ga "Xee³" "{path}"')
+    # def on_activated_async(self, view, **kwargs):
+    #     folder = view.window().extract_variables().get('folder')
+    #     if folder in WATCHERS and view.syntax().name != 'MultiMarkdown':
+    #         path = f"{folder}/.fighist"
+    #         os.system(f'open -ga "Xee³" "{path}"')
 
-
-    # def on_pre_close_window(self, window, **kwargs):
-        # logging.info('on_pre_close_window')
-
-    # def on_load_project(self, window, **kwargs):
-        # logging.info('load and start')
-        # window.run_command('start_term')
 
     def on_pre_close_project(self, window, **kwargs):
         folder = window.extract_variables().get('folder')
+        # stop_watch(folder)
         set_timeout_async(lambda: stop_watch(folder))
