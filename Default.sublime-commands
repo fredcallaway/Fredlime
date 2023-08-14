@@ -15,4 +15,5 @@
     {"caption": "iTerm: G2", "command": "start_term", "args": {"app": "iterm", "ssh": "g2", "title": "G2"}},
     {"caption": "iTerm: Scotty", "command": "start_term", "args": {"app": "iterm", "ssh": "scotty"}},
     
+    {"caption": "New Julia Script", "command": "new_julia_script"}
 ]
